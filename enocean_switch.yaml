@@ -1,0 +1,207 @@
+blueprint:
+  domain: "automation"
+  name: "EnOceam Dimmer Switch"
+  input:
+    light_target_left:
+      name: Left light control
+      selector:
+        entity:
+          domain: light
+    light_target_right:
+      name: Right light control
+      selector:
+        entity:
+          domain: light
+    switch_entity_action:
+      name: Switch
+      selector:
+        entity:
+          domain: sensor
+    input_boolean_longpress:
+      name: LongpressToggle
+      description: You need to create this helper toggle and select it here
+      selector:
+        entity:
+          domain: input_boolean
+    longpress_duration:
+      name: Long press duration (ms)
+      description: The amount of time to hold the button before long press is detected
+      default: 250
+      selector:
+        number:
+          min: 0
+          max: 1000
+          unit_of_measurement: "ms"
+    dimming_step_delay:
+      name: Dimming step delay (ms)
+      description: Delay between each dimming step
+      default: 250
+      selector:
+        number:
+          min: 0
+          max: 1000
+          unit_of_measurement: "ms"
+    dimming_step_size_pct:
+      name: The dimming step size in percent
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+variables:
+  var_dimming_step_size_pct: !input dimming_step_size_pct
+  neg_dimming_step_size_pct: "{{ (var_dimming_step_size_pct | int) * -1 }}"
+
+mode: restart
+trigger:
+  - platform: event
+    event_type: state_changed
+    event_data:
+      entity_id: !input switch_entity_action
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.new_state.state.startswith('press_') or
+      trigger.event.data.new_state.state.startswith('release_') }}
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.new_state.state.startswith('release_1') or trigger.event.data.new_state.state.startswith('release_2') }}"
+          - condition: state
+            entity_id: !input input_boolean_longpress
+            state: "off"
+        sequence:
+          - service: light.toggle
+            data: {}
+            target:
+              entity_id: !input light_target_left
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.new_state.state.startswith('release_3') or trigger.event.data.new_state.state.startswith('release_4') }}"
+          - condition: state
+            entity_id: !input input_boolean_longpress
+            state: "off"
+        sequence:
+          - service: light.toggle
+            data: {}
+            target:
+              entity_id: !input light_target_right
+
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.event.data.new_state.state == 'press_1' }}
+        sequence:
+          - service: input_boolean.turn_off
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 0
+              milliseconds: !input longpress_duration
+          - service: input_boolean.turn_on
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - repeat:
+              while: "{{ true }}"
+              sequence:
+                - service: light.turn_on
+                  data:
+                    brightness_step_pct: !input dimming_step_size_pct
+                    #transition: 0.25
+                    entity_id: !input light_target_left
+                - delay:
+                    milliseconds: !input dimming_step_delay
+
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.event.data.new_state.state == 'press_3' }}
+        sequence:
+          - service: input_boolean.turn_off
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 0
+              milliseconds: !input longpress_duration
+          - service: input_boolean.turn_on
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - repeat:
+              while: "{{ true }}"
+              sequence:
+                - service: light.turn_on
+                  data:
+                    brightness_step_pct: !input dimming_step_size_pct
+                    #transition: 0.25
+                    entity_id: !input light_target_right
+                - delay:
+                    milliseconds: !input dimming_step_delay
+
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.event.data.new_state.state == 'press_2' }}
+        sequence:
+          - service: input_boolean.turn_off
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 0
+              milliseconds: !input longpress_duration
+          - service: input_boolean.turn_on
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - repeat:
+              while: "{{ true }}"
+              sequence:
+                - service: light.turn_on
+                  data:
+                    brightness_step_pct: "{{ neg_dimming_step_size_pct }}"
+                    #transition: 0.25
+                    entity_id: !input light_target_left
+                - delay:
+                    milliseconds: !input dimming_step_delay
+
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ trigger.event.data.new_state.state == 'press_4' }}
+        sequence:
+          - service: input_boolean.turn_off
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 0
+              milliseconds: !input longpress_duration
+          - service: input_boolean.turn_on
+            data: {}
+            target:
+              entity_id: !input input_boolean_longpress
+          - repeat:
+              while: "{{ true }}"
+              sequence:
+                - service: light.turn_on
+                  data:
+                    brightness_step_pct: "{{ neg_dimming_step_size_pct }}"
+                    #transition: 0.25
+                    entity_id: !input light_target_right
+                - delay:
+                    milliseconds: !input dimming_step_delay
