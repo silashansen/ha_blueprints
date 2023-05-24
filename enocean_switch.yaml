@@ -14,6 +14,7 @@ blueprint:
           domain: light
     switch_entity_action:
       name: Switch
+      description: This entity must end with _action
       selector:
         entity:
           domain: sensor
