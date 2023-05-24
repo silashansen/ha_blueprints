@@ -1,6 +1,6 @@
 blueprint:
   domain: "automation"
-  name: "EnOceam Dimmer Switch"
+  name: "EnOcean Dimmer Switch"
   input:
     light_target_left:
       name: Left light control
