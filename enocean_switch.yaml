@@ -57,20 +57,20 @@ variables:
 
 mode: restart
 trigger:
-  - platform: event
-    event_type: state_changed
-    event_data:
-      entity_id: !input switch_entity_action
+  - platform: state
+    entity_id: !input switch_entity_action
 condition:
   - condition: template
     value_template: >-
-      {{ trigger.event.data.new_state.state.startswith('press_') or
-      trigger.event.data.new_state.state.startswith('release_') }}
+      {{ trigger.to_state.state.startswith('press_') or
+      trigger.to_state.state.startswith('release_') }}
 action:
+  - variables:
+      command: "{{ trigger.to_state.state }}"
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ trigger.event.data.new_state.state.startswith('release_1') or trigger.event.data.new_state.state.startswith('release_2') }}"
+            value_template: "{{ command == 'release_1' or command == 'release_2' }}"
           - condition: state
             entity_id: !input input_boolean_longpress
             state: "off"
@@ -81,7 +81,7 @@ action:
               entity_id: !input light_target_left
       - conditions:
           - condition: template
-            value_template: "{{ trigger.event.data.new_state.state.startswith('release_3') or trigger.event.data.new_state.state.startswith('release_4') }}"
+            value_template: "{{ command == 'release_3' or command == 'release_4' }}"
           - condition: state
             entity_id: !input input_boolean_longpress
             state: "off"
@@ -94,7 +94,7 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-              {{ trigger.event.data.new_state.state == 'press_1' }}
+              {{ command == 'press_1' }}
         sequence:
           - service: input_boolean.turn_off
             data: {}
@@ -123,7 +123,7 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-              {{ trigger.event.data.new_state.state == 'press_3' }}
+              {{ command == 'press_3' }}
         sequence:
           - service: input_boolean.turn_off
             data: {}
@@ -152,7 +152,7 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-              {{ trigger.event.data.new_state.state == 'press_2' }}
+              {{ command == 'press_2' }}
         sequence:
           - service: input_boolean.turn_off
             data: {}
@@ -181,7 +181,7 @@ action:
       - conditions:
           - condition: template
             value_template: >-
-              {{ trigger.event.data.new_state.state == 'press_4' }}
+              {{ command == 'press_4' }}
         sequence:
           - service: input_boolean.turn_off
             data: {}
