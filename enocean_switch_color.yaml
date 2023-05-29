@@ -182,7 +182,6 @@ action:
               sequence:
                 - service: light.turn_on
                   data:
-                    #if deducting taking neg_dimming_step_size_pct percent of 255 from the brightness would result in a negative number, set the brightness to 1 instead
                     brightness_step_pct: "{{0 if ((state_attr(light,'brightness') | int) -  (255 / 100 * pos_dimming_step_size_pct)) <= 1 else neg_dimming_step_size_pct }}"
                     transition: 0.2
                     entity_id: !input light_target
