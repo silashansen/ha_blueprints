@@ -44,7 +44,7 @@ blueprint:
           max: 1
           step: 0.01
     volume_dial_step:
-      name: Singel step dial volume increase/decrease
+      name: Single step dial volume increase/decrease
       description: How fast the volume is increase or decreased when dialing a single step at a time. The range is 0.0 to 1.0
       default: 0.01
       selector:
