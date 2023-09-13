@@ -25,10 +25,28 @@ blueprint:
           filter:
             - domain: media_player
               integration: sonos
-    volume_step_fast:
-      name: Fast volume step size
-      description: How fast the volume is increase or decreased when dialing fast. Max is 1.0 and muted is 0.0
+    volume_dial_fast:
+      name: Fast dial volume increase/decrease
+      description: How fast the volume is increase or decreased when dialing fast. The range is 0.0 to 1.0
       default: 0.1
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+    volume_dial_slow:
+      name: Slow dial volume increase/decrease
+      description: How fast the volume is increase or decreased when dialing slow. The range is 0.0 to 1.0
+      default: 0.05
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+    volume_dial_step:
+      name: Singel step dial volume increase/decrease
+      description: How fast the volume is increase or decreased when dialing a single step at a time. The range is 0.0 to 1.0
+      default: 0.01
       selector:
         number:
           min: 0
@@ -38,7 +56,9 @@ blueprint:
 variables:
   sonos_controller: !input sonos_controller
   button_sensor: !input button_sensor
-  volume_step_fast: !input volume_step_fast
+  volume_dial_fast: !input volume_dial_fast
+  volume_dial_slow: !input volume_dial_slow
+  volume_dial_step: !input volume_dial_step
 
 mode: restart
 max_exceeded: silent
@@ -166,7 +186,12 @@ action:
                 {{ state_attr(sonos_controller, 'group_members') | length
                 }}
               sequence:
-                - service: media_player.volume_down
+                - service: media_player.volume_set
+                  data:
+                    volume_level: >-
+                      {{ [state_attr(state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1], 'volume_level') - volume_dial_step,
+                      0] | max | float }}
                   target:
                     entity_id: >-
                       {{ state_attr(sonos_controller,
@@ -179,7 +204,12 @@ action:
                 {{ state_attr(sonos_controller, 'group_members') | length
                 }}
               sequence:
-                - service: media_player.volume_down
+                - service: media_player.volume_set
+                  data:
+                    volume_level: >-
+                      {{ [state_attr(state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1], 'volume_level') - volume_dial_slow,
+                      0] | max | float }}
                   target:
                     entity_id: >-
                       {{ state_attr(sonos_controller,
@@ -211,7 +241,12 @@ action:
                 {{ state_attr(sonos_controller, 'group_members') | length
                 }}
               sequence:
-                - service: media_player.volume_up
+                - service: media_player.volume_set
+                  data:
+                    volume_level: >-
+                      {{ [state_attr(state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1], 'volume_level') + volume_dial_step,
+                      1] | min | float }}
                   target:
                     entity_id: >-
                       {{ state_attr(sonos_controller,
@@ -224,7 +259,12 @@ action:
                 {{ state_attr(sonos_controller, 'group_members') | length
                 }}
               sequence:
-                - service: media_player.volume_up
+                - service: media_player.volume_set
+                  data:
+                    volume_level: >-
+                      {{ [state_attr(state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1], 'volume_level') + volume_dial_slow,
+                      1] | min | float }}
                   target:
                     entity_id: >-
                       {{ state_attr(sonos_controller,
@@ -241,8 +281,8 @@ action:
                   data:
                     volume_level: >-
                       {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') + volume_step_fast,
-                      1.0] | min | float }}
+                      'group_members')[repeat.index - 1], 'volume_level') + volume_dial_fast,
+                      1] | min | float }}
                   target:
                     entity_id: >-
                       {{ state_attr(sonos_controller,
