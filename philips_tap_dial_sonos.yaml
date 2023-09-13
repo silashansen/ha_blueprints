@@ -1,0 +1,249 @@
+blueprint:
+  name: Phlips Tap Dial Sonos Controller
+  description: "Use Philips Tap Dial to control Sonos.
+    Use an entity id which ends with '_action', e.g. 'sensor.bedroom_bed_tap_dial_switch_action'"
+
+  domain: automation
+  input:
+    button_sensor:
+      name: Philips Hue Tap dial switch sensor entity
+      description:
+        Sensor for Philips Hue Tap dial switch to use (Use sensor with
+        entity_id ends with _action)
+      selector:
+        entity:
+          multiple: false
+          filter:
+            - domain: sensor
+
+    sonos_controller:
+      name: Sonos controller device
+      description: The sonos controller that this tap dial will operate
+      selector:
+        entity:
+          multiple: false
+          filter:
+            - domain: media_player
+              integration: sonos
+    volume_step_fast:
+      name: Fast volume step size
+      description: How fast the volume is increase or decreased when dialing fast. Max is 1.0 and muted is 0.0
+      default: 0.1
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+
+variables:
+  sonos_controller: !input sonos_controller
+  button_sensor: !input button_sensor
+  volume_step_fast: !input volume_step_fast
+
+mode: restart
+max_exceeded: silent
+trigger:
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_1_press
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_1_press_release
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_1_hold
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_1_hold_release
+
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_2_press
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_2_press_release
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_2_hold
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_2_hold_release
+
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_3_press
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_3_press_release
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_3_hold
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_3_hold_release
+
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_4_press
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_4_press_release
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_4_hold
+  - platform: state
+    entity_id: !input button_sensor
+    to: button_4_hold_release
+
+  - platform: state
+    entity_id: !input button_sensor
+    to: dial_rotate_left_step
+  - platform: state
+    entity_id: !input button_sensor
+    to: dial_rotate_left_slow
+  - platform: state
+    entity_id: !input button_sensor
+    to: dial_rotate_left_fast
+
+  - platform: state
+    entity_id: !input button_sensor
+    to: dial_rotate_right_step
+  - platform: state
+    entity_id: !input button_sensor
+    to: dial_rotate_right_slow
+  - platform: state
+    entity_id: !input button_sensor
+    to: dial_rotate_right_fast
+
+action:
+  - variables:
+      action: "{{ trigger.to_state.state }}"
+  - choose:
+      #BUTTON 1
+      - conditions: "{{ action == 'button_1_press_release' }}"
+        sequence:
+          - service: media_player.media_play_pause
+            target:
+              entity_id: !input sonos_controller
+
+      # - conditions: "{{ action == 'button_1_hold' }}"
+      #   sequence: !input remote_button_1_hold
+
+      #BUTTON 2
+      - conditions: "{{ action == 'button_2_press_release' }}"
+        sequence:
+          - service: media_player.media_play_pause
+            target:
+              entity_id: !input sonos_controller
+
+      # - conditions: "{{ action == 'button_2_hold' }}"
+      #   sequence: !input remote_button_2_hold
+
+      # #BUTTON 3
+      - conditions: "{{ action == 'button_3_press_release' }}"
+        sequence:
+          - service: media_player.media_previous_track
+            target:
+              entity_id: !input sonos_controller
+
+      # - conditions: "{{ action == 'button_3_hold' }}"
+      #   sequence: !input remote_button_3_hold
+
+      #BUTTON 4
+      - conditions: "{{ action == 'button_4_press_release' }}"
+        sequence:
+          - service: media_player.media_next_track
+            target:
+              entity_id: !input sonos_controller
+      # - conditions: "{{ action == 'button_4_hold' }}"
+      #   sequence: !input remote_button_4_hold
+
+      # DIAL LEFT
+      - conditions: "{{ action == 'dial_rotate_left_step' }}"
+        sequence:
+          - repeat:
+              count: >-
+                {{ state_attr(sonos_controller, 'group_members') | length
+                }}
+              sequence:
+                - service: media_player.volume_down
+                  target:
+                    entity_id: >-
+                      {{ state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1] }}
+
+      - conditions: "{{ action == 'dial_rotate_left_slow' }}"
+        sequence:
+          - repeat:
+              count: >-
+                {{ state_attr(sonos_controller, 'group_members') | length
+                }}
+              sequence:
+                - service: media_player.volume_down
+                  target:
+                    entity_id: >-
+                      {{ state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1] }}
+
+      - conditions: "{{ action == 'dial_rotate_left_fast' }}"
+        sequence:
+          - repeat:
+              count: >-
+                {{ state_attr(sonos_controller, 'group_members') | length
+                }}
+              sequence:
+                - service: media_player.volume_set
+                  data:
+                    volume_level: >-
+                      {{ [state_attr(state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1], 'volume_level') - volume_step_fast,
+                      0] | max | float }}
+                  target:
+                    entity_id: >-
+                      {{ state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1] }}
+
+      # DIAL RIGHT
+      - conditions: "{{ action == 'dial_rotate_right_step' }}"
+        sequence:
+          - repeat:
+              count: >-
+                {{ state_attr(sonos_controller, 'group_members') | length
+                }}
+              sequence:
+                - service: media_player.volume_up
+                  target:
+                    entity_id: >-
+                      {{ state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1] }}
+
+      - conditions: "{{ action == 'dial_rotate_right_slow' }}"
+        sequence:
+          - repeat:
+              count: >-
+                {{ state_attr(sonos_controller, 'group_members') | length
+                }}
+              sequence:
+                - service: media_player.volume_up
+                  target:
+                    entity_id: >-
+                      {{ state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1] }}
+
+      - conditions: "{{ action == 'dial_rotate_right_fast' }}"
+        sequence:
+          - repeat:
+              count: >-
+                {{ state_attr(sonos_controller, 'group_members') | length
+                }}
+              sequence:
+                - service: media_player.volume_set
+                  data:
+                    volume_level: >-
+                      {{ [state_attr(state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1], 'volume_level') + volume_step_fast,
+                      1.0] | min | float }}
+                  target:
+                    entity_id: >-
+                      {{ state_attr(sonos_controller,
+                      'group_members')[repeat.index - 1] }}
