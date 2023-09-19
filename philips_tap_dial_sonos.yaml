@@ -44,7 +44,7 @@ blueprint:
           max: 1
           step: 0.01
     volume_dial_step:
-      name: Single step dial volume increase/decrease
+      name: Singel step dial volume increase/decrease
       description: How fast the volume is increase or decreased when dialing a single step at a time. The range is 0.0 to 1.0
       default: 0.01
       selector:
@@ -65,75 +65,12 @@ max_exceeded: silent
 trigger:
   - platform: state
     entity_id: !input button_sensor
-    to: button_1_press
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_1_press_release
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_1_hold
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_1_hold_release
 
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_2_press
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_2_press_release
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_2_hold
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_2_hold_release
-
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_3_press
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_3_press_release
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_3_hold
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_3_hold_release
-
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_4_press
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_4_press_release
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_4_hold
-  - platform: state
-    entity_id: !input button_sensor
-    to: button_4_hold_release
-
-  - platform: state
-    entity_id: !input button_sensor
-    to: dial_rotate_left_step
-  - platform: state
-    entity_id: !input button_sensor
-    to: dial_rotate_left_slow
-  - platform: state
-    entity_id: !input button_sensor
-    to: dial_rotate_left_fast
-
-  - platform: state
-    entity_id: !input button_sensor
-    to: dial_rotate_right_step
-  - platform: state
-    entity_id: !input button_sensor
-    to: dial_rotate_right_slow
-  - platform: state
-    entity_id: !input button_sensor
-    to: dial_rotate_right_fast
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.to_state.state.startswith('button_') or
+      trigger.to_state.state.startswith('dial_') }}
 
 action:
   - variables:
