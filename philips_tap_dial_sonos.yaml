@@ -226,7 +226,7 @@ action:
                   data:
                     volume_level: >-
                       {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') - volume_step_fast,
+                      'group_members')[repeat.index - 1], 'volume_level') - volume_dial_fast,
                       0] | max | float }}
                   target:
                     entity_id: >-
