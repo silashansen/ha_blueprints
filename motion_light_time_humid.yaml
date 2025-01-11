@@ -1,0 +1,111 @@
+blueprint:
+  name: Motion-activated Light with time criteria and humidity sensor
+  description: Turn on a light when motion is detected and the time criteria is met. The light will stay on as long as the humidity is above a certain threshold.
+  domain: automation
+  source_url: https://github.com/home-assistant/core/blob/dev/homeassistant/components/automation/blueprints/motion_light_time.yaml
+  input:
+    motion_entity:
+      name: Motion Sensor
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+            device_class: motion
+    light_target:
+      name: Light
+      selector:
+        entity:
+          filter:
+            domain: light
+    light_brightness:
+      name: Brightness
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+    humidity_threshold:
+      name: Humidity Threshold
+      default: 70
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+    humidity_sensor:
+      name: "Humidity sensor entity"
+      selector:
+        entity:
+          filter:
+            domain: sensor
+            device_class: humidity
+    no_motion_wait:
+      name: Wait time
+      description: Time to leave the light on after last motion is detected.
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+    time_range_before:
+      name: Active before
+      description: The motion activation is active before this time
+      default: "00:00:00"
+      selector:
+        time:
+    time_range_after:
+      name: Active after
+      description: The motion activation is active after this time
+      default: "00:00:00"
+      selector:
+        time:
+variables:
+  var_input_motion_entity: !input motion_entity
+  trigger_entity_id: "{{ trigger.entity_id }}"
+  var_input_humidity_entity_id: !input humidity_sensor
+  var_input_humidity_threshold: !input humidity_threshold
+# If motion is detected within the delay,
+# we restart the script.
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input motion_entity
+    from: "off"
+    to: "on"
+  - platform: state
+    entity_id: !input light_target
+    from: "on"
+    to: "off"
+
+condition:
+  - condition: time
+    before: !input time_range_before
+    after: !input time_range_after
+
+action:
+  - condition: "{{ trigger_entity_id == var_input_motion_entity }}"
+  - alias: "Turn on the light"
+    service: light.turn_on
+    data:
+      brightness_pct: !input light_brightness
+    target:
+      entity_id: !input light_target
+  - alias: "Wait until there is no motion from device"
+    wait_for_trigger:
+      platform: state
+      entity_id: !input motion_entity
+      from: "on"
+      to: "off"
+  - alias: "Wait the number of seconds that has been set"
+    delay: !input no_motion_wait
+  - wait_template: "{{ states(var_input_humidity_entity_id) | float < var_input_humidity_threshold }}"
+    timeout: "00:60:00"
+    continue_on_timeout: true
+  - alias: "Turn off the light"
+    service: light.turn_off
+    target:
+      entity_id: !input light_target
