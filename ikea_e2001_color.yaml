@@ -7,8 +7,11 @@ blueprint:
       name: IKEA E2001/E2002 Switch
       description: Select the IKEA E2001/E2002 switch
       selector:
-        entity:
-          domain: sensor
+        device:
+          filter:
+            - integration: mqtt # or deconz/zha depending on your integration
+              manufacturer: IKEA
+              model: STYRBAR remote control
     light:
       name: Light
       description: Select the light to control
@@ -53,24 +56,38 @@ variables:
   color_step: 15
 
 trigger:
-  - platform: state
-    entity_id: !input ikea_switch
-
-condition:
-  - condition: template
-    value_template: "{{ trigger.to_state.state.startswith('arrow') }}"
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_right_click
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_left_click
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_right_hold
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_left_hold
 
 action:
   - variables:
-      action: "{{ trigger.to_state.state }}"
-      current_time: '{{ as_timestamp(now()) }}'
+      action: "{{ trigger.payload }}"
+      current_time: "{{ as_timestamp(now()) }}"
       last_click_time_id: !input last_click_time
-      last_click_time: '{{ as_timestamp(states(last_click_time_id)) }}'
+      last_click_time: "{{ as_timestamp(states(last_click_time_id)) }}"
       time_since_last_click: "{{ current_time - (state_attr(last_click_time_id, 'timestamp') | float) }}"
       current_direction: '{{ "right" if "right" in action else "left" }}'
       last_click_direction_id: !input last_click_direction
       double_click_delay_value: !input double_click_delay
-      double_click_delay: '{{ (double_click_delay_value | int) / 1000 }}'
+      double_click_delay: "{{ (double_click_delay_value | int) / 1000 }}"
 
   - service: system_log.write
     data_template:
@@ -147,11 +164,11 @@ action:
     target:
       entity_id: !input last_click_time
     data:
-      timestamp: '{{ current_time }}'
+      timestamp: "{{ current_time }}"
   - service: input_text.set_value
     target:
       entity_id: !input last_click_direction
     data:
-      value: '{{ current_direction }}'
+      value: "{{ current_direction }}"
 
 mode: restart
