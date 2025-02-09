@@ -10,17 +10,15 @@ blueprint:
       selector:
         number:
           min: 0
-          step: 1
           max: 200
+          step: 1
           unit_of_measurement: kWh
-
     departure_time:
       name: Departure time
       description: The time the car is expected to leave.
-      default: 07:00
+      default: "07:00"
       selector:
         time:
-
     target_soc:
       name: Target SOC %
       description: The target state of charge for the EV battery.
@@ -38,7 +36,6 @@ blueprint:
         entity:
           filter:
             - domain: sensor
-
     charger_mode_entity:
       name: Charger mode
       description: The mode of the charger.
@@ -47,46 +44,41 @@ blueprint:
           filter:
             - domain: sensor
               integration: zaptec
-
     price_entity:
       name: Price source
-      description: (ex. from nordpool integration)
+      description: Energy price sensor (e.g., from nordpool integration)
       selector:
         entity:
           filter:
             - domain: sensor
               integration: nordpool
-
     max_charge_power_entity:
       name: Max charge power (A)
-      description: Max charge power entity
+      description: Maximum charging current
       selector:
         entity:
           filter:
             - domain: number
               integration: zaptec
-    
     min_charge_power_entity:
       name: Min charge power (A)
-      description: Min charge power entity
-      selector: 
+      description: Minimum charging current
+      selector:
         entity:
           filter:
             - domain: number
               integration: zaptec
-
     charge_switch_entity:
       name: Charger ON/OFF switch
-      description: Charge switch entity
+      description: Switch to control charging
       selector:
         entity:
           filter:
             - domain: switch
               integration: zaptec
-
     helper_charge_start_entity:
       name: Helper charge start entity
-      description: Helper entity to store the start time of the charge
+      description: Helper entity to store the charge start time
       selector:
         entity:
           filter:
@@ -94,14 +86,14 @@ blueprint:
 
 trigger:
   - platform: time_pattern
-    # Runs at the start of every hour
-    minutes: */15
-  - trigger: state
+    minutes: "/15"
+  - platform: state
     entity_id: !input charger_mode_entity
-  - trigger: state
+  - platform: state
     entity_id: !input car_soc_entity
-  - trigger: state
+  - platform: state
     entity_id: !input price_entity
+
 condition: []
 
 action:
@@ -116,22 +108,18 @@ action:
       input_charge_switch_entity: !input charge_switch_entity
       input_departure_time: !input departure_time
       input_helper_charge_start_entity: !input helper_charge_start_entity
+  
   - variables:
       battery_capacity: "{{ input_battery_capacity | float }}"
       current_soc: "{{ states(input_car_soc_entity) | float(0) }}"
       target_soc: "{{ input_target_soc | float }}"
       charger_mode: "{{ states(input_charger_mode_entity) }}"
       charge_power_kw: "{{ ((states(input_max_charge_power_entity) | float + states(input_min_charge_power_entity) | float) / 2) * 230 * 3 / 1000 | round(2) }}"
-      
-      # Multiply by 0.9 to account for charger efficiency
-      required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / 0.9 }}" 
-      
+      required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / 0.9 }}"
       hours_to_charge: "{{ (required_charge_power_kw / charge_power_kw) | ceil }}"
-
       current_time: "{{ now() }}"
-      # Parse and get all future price periods
-  - variables: 
 
+  - variables:
       cheapest_hours: >-
         {% set current_time = now() %}
         {#- Parse input_departure_time and add it to today's date -#}
@@ -180,7 +168,7 @@ action:
           {% endif -%}
         {% endfor -%}
         {{ ns.is_cheapest_hour }}
-  # Add charging control logic
+
   - choose:
       - conditions:
           - and:
@@ -196,7 +184,7 @@ action:
           - action: switch.turn_on
             target:
               entity_id: !input charge_switch_entity
-            
+
       - conditions:
           - or:
               - "{{ not is_cheapest_hour }}"
