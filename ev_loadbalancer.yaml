@@ -1,0 +1,201 @@
+blueprint:
+  name: EV Load Balancer
+  description: Automatically adjust the charge power of the EV based on the current load.
+  domain: automation
+  input:
+
+    zaptec_installation:
+      name: Zaptec Installation
+      description: The Zaptec installation to control.
+      selector:
+        device:
+          filter:
+            - integration: zaptec
+      
+    charger_mode_entity:
+      name: Charger mode
+      description: The mode of the charger.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: zaptec
+
+    charger_min_current_entity:
+      name: Charger min current
+      description: The minimum current to deliver to the EV per phase.
+      selector:
+        entity:
+          filter:
+            - domain: number
+              integration: zaptec
+    
+    charger_max_current_entity:
+      name: Charger max current
+      description: The maximum current the charger can handle.
+      selector:
+        entity:
+          filter:
+            - domain: number
+              integration: zaptec
+
+    installation_max_power:
+      name: Max installation power
+      description: The maximum power the installation can handle in amperes.
+      default: 20
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "A"
+
+    installation_current_power_l1_entity:
+      name: Installation current power L1
+      description: The current power of the installation in watts.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: tibber
+    
+    installation_current_power_l2_entity:
+      name: Installation current power L2
+      description: The current power of the installation in Amps.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: tibber
+
+    installation_current_power_l3_entity:
+      name: Installation current power L3
+      description: The current power of the installation in Amps.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: tibber
+
+    charger_current_power_l1_entity:
+      name: Charger current power L1
+      description: The current power of the charger in Amps.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: zaptec
+
+    charger_current_power_l2_entity:
+      name: Charger current power L2
+      description: The current power of the charger in Amps.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: zaptec
+
+    charger_current_power_l3_entity:
+      name: Charger current power L3
+      description: The current power of the charger in Amps.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              integration: zaptec
+
+    min_power_adjustment:
+      name: Minimum Power Adjustment
+      description: Minimum power adjustment threshold in amperes to prevent tiny fluctuations
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 10
+          step: 1
+          unit_of_measurement: "A"
+
+variables:
+  input_zaptec_installation: !input zaptec_installation
+  input_installation_max_power: !input installation_max_power
+  input_charger_min_current_entity: !input charger_min_current_entity
+  input_charger_max_current_entity: !input charger_max_current_entity
+  input_installation_current_power_l1_entity: !input installation_current_power_l1_entity
+  input_installation_current_power_l2_entity: !input installation_current_power_l2_entity
+  input_installation_current_power_l3_entity: !input installation_current_power_l3_entity
+  input_charger_current_power_l1_entity: !input charger_current_power_l1_entity
+  input_charger_current_power_l2_entity: !input charger_current_power_l2_entity
+  input_charger_current_power_l3_entity: !input charger_current_power_l3_entity
+  input_charger_mode_entity: !input charger_mode_entity
+  input_min_power_adjustment: !input min_power_adjustment
+
+mode: restart
+
+trigger:
+  - platform: time_pattern
+    # Runs every 15 minutes
+    minutes: /15
+  - platform: numeric_state
+    entity_id: 
+      - !input installation_current_power_l1_entity
+      - !input installation_current_power_l2_entity
+      - !input installation_current_power_l3_entity
+    above: !input installation_max_power
+    for:
+      seconds: 10
+
+
+condition:
+  # First check if charger is in Charging mode before proceeding with any other checks
+  - condition: template
+    value_template: >
+      {{ states(input_charger_mode_entity) == 'Charging' }}
+
+
+action:
+  - variables:
+      # Get the input values
+      installation_max_power: "{{ input_installation_max_power | float }}"
+      charger_min_current: "{{ states(input_charger_min_current_entity) | float(default=0) }}"
+      charger_max_current: "{{ states(input_charger_max_current_entity) | float(default=0) }}"
+      installation_current_power_l1: "{{ states(input_installation_current_power_l1_entity) | float(default=0) }}"
+      installation_current_power_l2: "{{ states(input_installation_current_power_l2_entity) | float(default=0) }}"
+      installation_current_power_l3: "{{ states(input_installation_current_power_l3_entity) | float(default=0) }}"
+      charger_current_power_l1: "{{ states(input_charger_current_power_l1_entity) | float(default=0) }}"
+      charger_current_power_l2: "{{ states(input_charger_current_power_l2_entity) | float(default=0) }}"
+      charger_current_power_l3: "{{ states(input_charger_current_power_l3_entity) | float(default=0) }}"
+
+  - variables:
+      # Calculate the available charge amps for each phase by looking at the installation max power and the current power draw of each phase
+      available_charge_amps_l1: "{{ installation_max_power - installation_current_power_l1 | int }}"
+      available_charge_amps_l2: "{{ installation_max_power - installation_current_power_l2 | int }}"
+      available_charge_amps_l3: "{{ installation_max_power - installation_current_power_l3 | int }}"
+    
+  - variables:
+      # Subtract 1 to prevent tiny fluctuations
+      new_curent_l1: "{{ max(min(charger_current_power_l1 + available_charge_amps_l1, charger_max_current) - 1, charger_min_current) | int }}"
+      new_curent_l2: "{{ max(min(charger_current_power_l2 + available_charge_amps_l2, charger_max_current) - 1, charger_min_current) | int }}"
+      new_curent_l3: "{{ max(min(charger_current_power_l3 + available_charge_amps_l3, charger_max_current) - 1, charger_min_current) | int }}"
+
+  - choose:
+      #- conditions:
+      #    - condition: template
+      #      value_template: "{{ is_above_max_power }}"
+      #  sequence:
+      #    - action: zaptec.limit_current
+      #      data:
+      #        device_id: !input zaptec_installation
+      #        available_current_phase1: "{{ new_curent_l1 }}"
+      #        available_current_phase2: "{{ new_curent_l2 }}"
+      #        available_current_phase3: "{{ new_curent_l3 }}"
+      - conditions:
+          - condition: template
+            value_template: "{{ new_curent_l1 != (charger_current_power_l1 | int) or new_curent_l2 != (charger_current_power_l2 | int) or new_curent_l3 != (charger_current_power_l3 | int) }}"
+        sequence:
+          - action: zaptec.limit_current
+            data:
+              device_id: !input zaptec_installation
+              available_current_phase1: "{{ new_curent_l1 }}"
+              available_current_phase2: "{{ new_curent_l2 }}"
+              available_current_phase3: "{{ new_curent_l3 }}"
+
