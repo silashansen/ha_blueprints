@@ -5,6 +5,15 @@ Some are also referenced on the official Blueprints Exchange forum [https://comm
 
 ## List of blueprints
 
+### Charging
+
+| Blueprint | Description |
+|-----------|-------------|
+| [EV Charging Time Optimizer](/charging/charge_optimizer.yaml) | Optimize EV charging based on electricity prices and departure time (for Zaptec and Nordpool) |
+| [EV Load Balancing](/charging/ev_loadbalancer.yaml) | Avoid overloading the main fuse by adjusting the charge power dynamically based on the current load |
+
+### Light, etc.
+
 | Blueprint | Description |
 |-----------|-------------|
 | [ENOcean light switch + brightness](/enocean_switch.yaml) | Control two different lights with a 4 button Enocean switch (+/- brightness per light) |
@@ -13,6 +22,3 @@ Some are also referenced on the official Blueprints Exchange forum [https://comm
 | [Tap Dial Sonos control v1 - Actions](/philips_tap_dial_sonos.yaml) | Original version of the Sonos controller using entity actions (now deprecated by zigbee2mqtt) |
 | [Tap Dial Sonos control v2 - MQTT](/philips_tap_dial_sonos_v2.yaml) | Updated version of the Sonos controller using device actions and MQTT with configurable volume adjustment speeds for the dial |
 | [Motion-activated Light with Time and Humidity](/motion_light_time_humid.yaml) | Motion-activated light that stays on while humidity is above threshold, with configurable time criteria |
-
-
-
