@@ -130,6 +130,8 @@ variables:
   input_min_power_adjustment: !input min_power_adjustment
 
 mode: restart
+trace:
+  stored_traces: 50
 
 trigger:
   - platform: time_pattern
