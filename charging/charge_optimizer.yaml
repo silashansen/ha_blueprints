@@ -110,12 +110,13 @@ action:
       input_helper_charge_start_entity: !input helper_charge_start_entity
   
   - variables:
+      efficiency_factor: 0.9 # Charger efficiency factor
       battery_capacity: "{{ input_battery_capacity | float }}"
       current_soc: "{{ states(input_car_soc_entity) | float(0) }}"
       target_soc: "{{ input_target_soc | float }}"
       charger_mode: "{{ states(input_charger_mode_entity) }}"
       charge_power_kw: "{{ ((states(input_max_charge_power_entity) | float + states(input_min_charge_power_entity) | float) / 2) * 230 * 3 / 1000 | round(2) }}"
-      required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / 0.9 }}"
+      required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / efficiency_factor }}"
       hours_to_charge: "{{ ((required_charge_power_kw / charge_power_kw) + 0.5) | int }}"
       current_time: "{{ now() }}"
 
