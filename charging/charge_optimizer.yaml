@@ -202,3 +202,5 @@ action:
               entity_id: !input charge_switch_entity
 
 mode: single
+trace:
+  stored_traces: 50
