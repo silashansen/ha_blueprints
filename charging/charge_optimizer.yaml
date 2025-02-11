@@ -175,8 +175,10 @@ action:
         {{ ns.is_cheapest_hour }}
 
   - choose:
+      # Criteria for when to start charging
       - conditions:
           - and:
+              - "{{ cheapest_hours | length > 0 }}"
               - "{{ is_cheapest_hour }}"
               - "{{ current_soc < target_soc }}"
         sequence:
@@ -190,10 +192,16 @@ action:
             target:
               entity_id: !input charge_switch_entity
 
+      # Criteria for when to stop charging
       - conditions:
-          - or:
-              - "{{ not is_cheapest_hour }}"
-              - "{{ current_soc >= target_soc }}"
+          - or: # if one of the conditions are true, stop charging
+              - and:
+                  - "{{ states(input_charger_mode_entity) == 'Charging' }}"   # A
+                  - "{{ not is_cheapest_hour }}"                              # B
+                  - "{{ now() < as_datetime(departure) }}"                    # C
+              - and:
+                  - "{{ states(input_charger_mode_entity) == 'Charging' }}"   # A
+                  - "{{ current_soc >= target_soc }}"                         # D
         sequence:
           - action: input_datetime.set_datetime
             target:
