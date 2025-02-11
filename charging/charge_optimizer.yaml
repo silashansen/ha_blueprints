@@ -119,29 +119,33 @@ action:
       required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / efficiency_factor }}"
       hours_to_charge: "{{ ((required_charge_power_kw / charge_power_kw) + 0.5) | int }}"
       current_time: "{{ now() }}"
-
-  - variables:
-      cheapest_hours: >-
+      
+      departure: >-
         {% set current_time = now() %}
-        {#- Parse input_departure_time and add it to today's date -#}
         {% set today = current_time.replace(hour=0, minute=0, second=0, microsecond=0) %}
         {% set departure_time = strptime(input_departure_time, '%H:%M:%S').time() %}
         {% set departure = today.replace(hour=departure_time.hour, minute=departure_time.minute, second=departure_time.second) %}
-        {#- if departure is in the past, add one day to the departure time -#}
-        {% if departure.timestamp() < current_time.timestamp() %}
-          {% set departure = departure + timedelta(days=1) %}
+        {%- if departure.timestamp() < current_time.timestamp() %}
+          {{- (departure + timedelta(days=1)).timestamp() -}}
+        {% else %}
+          {{- departure.timestamp() -}}
         {% endif %}
+
+  - variables:
+      cheapest_hours: >-
         {% set ns = namespace(prices=[]) %}
+        {% set current_time = now() %}
+        {% set departure_dt = as_datetime(departure) %}
         {% if state_attr(input_price_entity, 'raw_today') is not none %}
           {% for price in state_attr(input_price_entity,'raw_today') -%}
-            {% if price.start.timestamp() // 3600 >= current_time.timestamp() // 3600 and price.start.timestamp() // 3600 < departure.timestamp() // 3600 -%}
+            {% if price.start.timestamp() // 3600 >= current_time.timestamp() // 3600 and price.start.timestamp() // 3600 < departure_dt.timestamp() // 3600 -%}
               {% set ns.prices = ns.prices + [{ 'start': price.start.strftime('%Y-%m-%d %H:%M:%S'), 'start_ts': price.start.timestamp(), 'value': price.value }] -%}
             {% endif -%}
           {% endfor -%}
         {% endif %}
         {% if state_attr(input_price_entity,'raw_tomorrow') is not none %}
           {% for price in state_attr(input_price_entity,'raw_tomorrow') -%}
-            {% if price.start.timestamp() // 3600 >= current_time.timestamp() // 3600 and price.start.timestamp() // 3600 < departure.timestamp() // 3600 -%}
+            {% if price.start.timestamp() // 3600 >= current_time.timestamp() // 3600 and price.start.timestamp() // 3600 < departure_dt.timestamp() // 3600 -%}
               {% set ns.prices = ns.prices + [{ 'start': price.start.strftime('%Y-%m-%d %H:%M:%S'), 'start_ts': price.start.timestamp(), 'value': price.value }] -%}
             {% endif -%}
           {% endfor -%}
