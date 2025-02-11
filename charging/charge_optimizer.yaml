@@ -194,14 +194,15 @@ action:
 
       # Criteria for when to stop charging
       - conditions:
-          - or: # if one of the conditions are true, stop charging
+        # If charging AND (not the cheapest hour AND before departure time OR reached target SOC)
+        - and:
+          - "{{ states(input_charger_mode_entity) == 'Charging' }}"           # Always only consider stopping if charging
+          - or: 
               - and:
-                  - "{{ states(input_charger_mode_entity) == 'Charging' }}"   # A
-                  - "{{ not is_cheapest_hour }}"                              # B
-                  - "{{ now() < as_datetime(departure) }}"                    # C
+                  - "{{ not is_cheapest_hour }}"                              # Not the cheapest hour
+                  - "{{ now() < as_datetime(departure) }}"                    # Before departure time
               - and:
-                  - "{{ states(input_charger_mode_entity) == 'Charging' }}"   # A
-                  - "{{ current_soc >= target_soc }}"                         # D
+                  - "{{ current_soc >= target_soc }}"                         # Reached target SOC
         sequence:
           - action: input_datetime.set_datetime
             target:
