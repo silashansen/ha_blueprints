@@ -76,6 +76,7 @@ blueprint:
           filter:
             - domain: switch
               integration: zaptec
+              
     helper_charge_start_entity:
       name: Helper charge start entity
       description: Helper entity to store the charge start time
@@ -119,7 +120,6 @@ action:
       required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / efficiency_factor }}"
       hours_to_charge: "{{ ((required_charge_power_kw / charge_power_kw) + 0.5) | int }}"
       current_time: "{{ now() }}"
-      
       departure: >-
         {% set current_time = now() %}
         {% set today = current_time.replace(hour=0, minute=0, second=0, microsecond=0) %}
@@ -182,12 +182,6 @@ action:
               - "{{ is_cheapest_hour }}"
               - "{{ current_soc < target_soc }}"
         sequence:
-          - action: input_datetime.set_datetime
-            target:
-              entity_id: !input helper_charge_start_entity
-            data:
-              datetime: "{{ cheapest_hours[0].start }}"
-
           - action: switch.turn_on
             target:
               entity_id: !input charge_switch_entity
@@ -204,15 +198,18 @@ action:
               - and:
                   - "{{ current_soc >= target_soc }}"                         # Reached target SOC
         sequence:
-          - action: input_datetime.set_datetime
-            target:
-              entity_id: !input helper_charge_start_entity
-            data:
-              datetime: "{{ cheapest_hours[0].start }}"
-
           - action: switch.turn_off
             target:
               entity_id: !input charge_switch_entity
+  - if:
+      - "{{ cheapest_hours | length > 0 }}"
+    then:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: !input helper_charge_start_entity
+        data:
+          datetime: "{{ cheapest_hours[0].start }}"
+    
 
 mode: single
 trace:
