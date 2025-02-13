@@ -187,6 +187,9 @@ action:
               entity_id: !input charge_switch_entity
 
       # Criteria for when to stop charging
+      # Note: If charging is not done, but the cheapest hour has passed, we will stop charging. 
+      # This is to avoid charging for a long time if the price is not good.
+      # If, however, it's the cheapest hour, we will continue charging until the target SOC is reached.
       - conditions:
         # If charging and (not cheapest hour before departure or target SOC reached).
         - and:
