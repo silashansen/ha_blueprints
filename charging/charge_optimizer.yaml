@@ -90,10 +90,13 @@ trigger:
     minutes: "/15"
   - platform: state
     entity_id: !input charger_mode_entity
+    to: # null means to ignore attribute changes
   - platform: state
     entity_id: !input car_soc_entity
+    to: # null means to ignore attribute changes
   - platform: state
     entity_id: !input price_entity
+    to: # null means to ignore attribute changes  
 
 condition: []
 
