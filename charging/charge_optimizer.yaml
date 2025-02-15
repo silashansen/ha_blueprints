@@ -121,7 +121,7 @@ action:
       charger_mode: "{{ states(input_charger_mode_entity) }}"
       charge_power_kw: "{{ ((states(input_max_charge_power_entity) | float + states(input_min_charge_power_entity) | float) / 2) * 230 * 3 / 1000 | round(2) }}"
       required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / efficiency_factor }}"
-      hours_to_charge: "{{ ((required_charge_power_kw / charge_power_kw) + 0.5) | int }}"
+      hours_to_charge: "{{ ((required_charge_power_kw / charge_power_kw)) | round(0, 'ceil') | int}}"
       current_time: "{{ now() }}"
       departure: >-
         {% set current_time = now() %}
