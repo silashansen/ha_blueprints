@@ -84,6 +84,13 @@ blueprint:
         entity:
           filter:
             - domain: input_datetime
+    helper_charge_hours_entity:
+      name: Helper charge hours entity
+      description: Helper entity to store the charge hours for graphing
+      selector:
+        entity:
+          filter:
+            - domain: input_text
 
 trigger:
   - platform: time_pattern
@@ -112,7 +119,7 @@ action:
       input_charge_switch_entity: !input charge_switch_entity
       input_departure_time: !input departure_time
       input_helper_charge_start_entity: !input helper_charge_start_entity
-  
+
   - variables:
       efficiency_factor: 0.9 # Charger efficiency factor
       battery_capacity: "{{ input_battery_capacity | float }}"
@@ -162,6 +169,12 @@ action:
         {% set first_hours_to_charge_prices_sorted_by_start = first_hours_to_charge_prices | sort(attribute='start_ts') -%}
 
         {{ first_hours_to_charge_prices_sorted_by_start }}
+      total_charge_cost: >-
+        {% set tariff = 0.9648 %}
+        {% set kwh_needed = required_charge_power_kw * efficiency_factor %}
+        {% set length_hours = cheapest_hours | length %}
+        {% set price_average = cheapest_hours | sum(attribute='value') / length_hours %}
+        {{ (price_average + tariff) * kwh_needed }}
   - variables:
       first_cheapest_hour: "{{ cheapest_hours[0] }}"
   - variables:
@@ -176,6 +189,7 @@ action:
           {% endif -%}
         {% endfor -%}
         {{ ns.is_cheapest_hour }}
+  
 
   - choose:
       # Criteria for when to start charging
@@ -215,7 +229,15 @@ action:
           entity_id: !input helper_charge_start_entity
         data:
           datetime: "{{ cheapest_hours[0].start }}"
-    
+      - action: python_script.hass_entities
+        data:
+          action: set_state_attributes
+          entity_id: !input helper_charge_hours_entity
+          state: "{{ cheapest_hours[0].start }}"
+          attributes:
+            - prices: "{{ cheapest_hours | tojson }}"
+            - total_charge_cost: "{{ total_charge_cost }}"
+      
 
 mode: single
 trace:
