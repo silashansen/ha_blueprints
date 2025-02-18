@@ -84,6 +84,15 @@ blueprint:
         entity:
           filter:
             - domain: input_datetime
+    helper_charge_departure_entity:
+      name: Helper charge departure entity
+      description: Use this, if you want the departure time to be set by the value of this helper entity.
+      default: {}
+      selector:
+        entity:
+          filter:
+            - domain: input_datetime
+    
     helper_charge_hours_entity:
       name: Helper charge hours entity
       description: Helper entity to store the charge hours for graphing
@@ -104,6 +113,9 @@ trigger:
   - platform: state
     entity_id: !input price_entity
     to: # null means to ignore attribute changes  
+  - platform: state
+    entity_id: !input helper_charge_departure_entity
+    to: # null means to ignore attribute changes
 
 condition: []
 
@@ -118,6 +130,7 @@ action:
       input_min_charge_power_entity: !input min_charge_power_entity
       input_charge_switch_entity: !input charge_switch_entity
       input_departure_time: !input departure_time
+      input_helper_charge_departure_entity: !input helper_charge_departure_entity
       input_helper_charge_start_entity: !input helper_charge_start_entity
 
   - variables:
@@ -132,8 +145,13 @@ action:
       current_time: "{{ now() }}"
       departure: >-
         {% set current_time = now() %}
+        {% set selected_departure_time = input_departure_time %}
+        {% if input_helper_charge_departure_entity != {} %}
+          {% set selected_departure_time = states(input_helper_charge_departure_entity) %}
+        {% endif %}
+
         {% set today = current_time.replace(hour=0, minute=0, second=0, microsecond=0) %}
-        {% set departure_time = strptime(input_departure_time, '%H:%M:%S').time() %}
+        {% set departure_time = strptime(selected_departure_time, '%H:%M:%S').time() %}
         {% set departure = today.replace(hour=departure_time.hour, minute=departure_time.minute, second=departure_time.second) %}
         {%- if departure.timestamp() < current_time.timestamp() %}
           {{- (departure + timedelta(days=1)).timestamp() -}}

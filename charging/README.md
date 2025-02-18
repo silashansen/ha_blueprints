@@ -134,6 +134,25 @@ The algorithm ensures:
 - `max_charge_power_entity`: Maximum charging current setting
 - `min_charge_power_entity`: Minimum charging current setting
 - `charge_switch_entity`: Switch to control charging
-- `helper_charge_start_entity`: Helper entity to store charging schedule
+- `helper_charge_start_entity`: Helper entity (`input_datetime`) to store the next charging start time
+- `helper_charge_departure_entity`: Optional helper entity (`input_datetime`) to dynamically set departure time
+- `helper_charge_hours_entity`: Helper entity (`input_text`) to store charging schedule information and cost
+
+### Helper Entity Setup
+
+Before using this blueprint, you'll need to create the following helper entities:
+
+1. Create an `input_datetime` helper for `helper_charge_start_entity`:
+   - This will store when the next charging session is scheduled to start
+   - The automation will update this automatically
+
+2. Optional: Create an `input_datetime` helper for `helper_charge_departure_entity`:
+   - Only needed if you want to dynamically change departure times
+   - If not set, the blueprint will use the fixed departure time from the configuration
+
+3. Create an `input_text` helper for `helper_charge_hours_entity`:
+   - This will store the charging schedule details and cost information
+   - Used for displaying charging information in your dashboard
+   - The automation will update this with the selected charging hours and total cost
 
 
