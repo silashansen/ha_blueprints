@@ -6,6 +6,7 @@ This Home Assistant blueprint provides intelligent EV charging optimization base
 - Home Assistant with Nordpool integration
 - Compatible EV charger (e.g., Zaptec)
 - EV with SOC reporting capability
+- HASS Entities script to update entity attributes: [HASS Entities](https://github.com/pmazz/ps_hassio_entities/blob/master/python_scripts/hass_entities.py)
 
 ## Operation
 For every run, the blueprint will:
