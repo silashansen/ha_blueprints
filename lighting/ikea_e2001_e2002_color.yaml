@@ -1,0 +1,174 @@
+blueprint:
+  name: IKEA E2001/E2002 Color Control
+  description: Control light color using IKEA E2001/E2002 switch
+  domain: automation
+  input:
+    ikea_switch:
+      name: IKEA E2001/E2002 Switch
+      description: Select the IKEA E2001/E2002 switch
+      selector:
+        device:
+          filter:
+            - integration: mqtt # or deconz/zha depending on your integration
+              manufacturer: IKEA
+              model: STYRBAR remote control
+    light:
+      name: Light
+      description: Select the light to control
+      selector:
+        entity:
+          domain: light
+          supported_features:
+            - light.LightEntityFeature.TRANSITION
+    color_change_delay:
+      name: Color change delay (ms)
+      description: Delay between each color change step
+      default: 250
+      selector:
+        number:
+          min: 0
+          max: 1000
+          unit_of_measurement: "ms"
+    double_click_delay:
+      name: Double-click delay (ms)
+      description: Maximum delay between clicks to be considered a double-click
+      default: 250
+      selector:
+        number:
+          min: 100
+          max: 1000
+          unit_of_measurement: "ms"
+    last_click_time:
+      name: Last Click Time
+      description: Helper to store the last click time
+      selector:
+        entity:
+          domain: input_datetime
+    last_click_direction:
+      name: Last Click Direction
+      description: Helper to store the last click direction
+      selector:
+        entity:
+          domain: input_text
+
+variables:
+  light: !input light
+  color_step: 15
+
+trigger:
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_right_click
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_left_click
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_right_hold
+  - platform: device
+    domain: mqtt
+    device_id: !input ikea_switch
+    type: action
+    subtype: arrow_left_hold
+
+action:
+  - variables:
+      action: "{{ trigger.payload }}"
+      current_time: "{{ as_timestamp(now()) }}"
+      last_click_time_id: !input last_click_time
+      last_click_time: "{{ as_timestamp(states(last_click_time_id)) }}"
+      time_since_last_click: "{{ current_time - (state_attr(last_click_time_id, 'timestamp') | float) }}"
+      current_direction: '{{ "right" if "right" in action else "left" }}'
+      last_click_direction_id: !input last_click_direction
+      double_click_delay_value: !input double_click_delay
+      double_click_delay: "{{ (double_click_delay_value | int) / 1000 }}"
+
+  - service: system_log.write
+    data_template:
+      message: "Variables: action: {{ action }}, current_time: {{ current_time }}, last_click_time: {{ last_click_time }}, time_since_last_click: {{ time_since_last_click }}, current_direction: {{ current_direction }}, double_click_delay: {{ double_click_delay }}"
+      level: info
+
+  - choose:
+      # Double-click detection
+      - conditions:
+          - "{{ action.endswith('click') }}"
+          - "{{ time_since_last_click <= double_click_delay }}"
+          - "{{ current_direction == states(last_click_direction_id) }}"
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: !input light
+            data:
+              rgb_color: [255, 255, 255]
+              brightness: 255
+              transition: 0.25
+
+      # Single click color change
+      - conditions:
+          - "{{ action == 'arrow_right_click' }}"
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: !input light
+            data:
+              hs_color: '{{ [((state_attr(light,"hs_color")[0] or 0) + color_step) % 360, 100] }}'
+              transition: 0.25
+      - conditions:
+          - "{{ action == 'arrow_left_click' }}"
+        sequence:
+          - service: light.turn_on
+            target:
+              entity_id: !input light
+            data:
+              hs_color: '{{ [((state_attr(light,"hs_color")[0] or 0) - color_step) % 360, 100] }}'
+              transition: 0.25
+
+      # Continuous color change on hold
+      - conditions:
+          - "{{ action == 'arrow_right_hold' }}"
+        sequence:
+          - repeat:
+              count: 50
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input light
+                  data:
+                    hs_color: '{{ [((state_attr(light,"hs_color")[0] or 0) + color_step) % 360, 100] }}'
+                    transition: 0.25
+                - delay:
+                    milliseconds: !input color_change_delay
+      - conditions:
+          - "{{ action == 'arrow_left_hold' }}"
+        sequence:
+          - repeat:
+              count: 50
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input light
+                  data:
+                    hs_color: '{{ [((state_attr(light,"hs_color")[0] or 0) - color_step) % 360, 100] }}'
+                    transition: 0.25
+                - delay:
+                    milliseconds: !input color_change_delay
+
+  # Update last click time and direction
+  - service: input_datetime.set_datetime
+    target:
+      entity_id: !input last_click_time
+    data:
+      timestamp: "{{ current_time }}"
+  - service: input_text.set_value
+    target:
+      entity_id: !input last_click_direction
+    data:
+      value: "{{ current_direction }}"
+
+mode: restart
