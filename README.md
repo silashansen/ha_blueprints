@@ -35,6 +35,6 @@ Each directory contains its own README with detailed information about the bluep
 |-----------|-------------|
 | [ENOcean Light Switch](/buttons/enocean_switch.yaml) | Control two different lights with a 4 button Enocean switch (+/- brightness per light) |
 | [ENOcean Light Switch with Color](/buttons/enocean_switch_color.yaml) | Control a 4 button Enocean switch with two buttons controlling light intensity and two buttons cycling between colors |
-| [IKEA E2001 Color Control](/buttons/ikea_e2001_color.yaml) | Control for the IKEA E2001 switch with color control functionality |
+| [IKEA E2001/E2002 Color Control](/buttons/ikea_e2001_color.yaml) | Control light color using IKEA E2001/E2002 STYRBAR remote with single-click color changes, double-click white reset, and hold for continuous color cycling |
 | [Tap Dial Sonos Control v1](/buttons/philips_tap_dial_sonos.yaml) | Original version of the Sonos controller using entity actions (now deprecated by zigbee2mqtt) |
 | [Tap Dial Sonos Control v2](/buttons/philips_tap_dial_sonos_v2.yaml) | Updated version of the Sonos controller using device actions and MQTT with configurable volume adjustment speeds for the dial |

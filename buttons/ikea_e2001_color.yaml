@@ -17,9 +17,8 @@ blueprint:
       description: Select the light to control
       selector:
         entity:
-          domain: light
-          supported_features:
-            - light.LightEntityFeature.TRANSITION
+          filter:
+            domain: light
     color_change_delay:
       name: Color change delay (ms)
       description: Delay between each color change step
