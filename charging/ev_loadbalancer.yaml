@@ -138,7 +138,7 @@ trigger:
     # Runs every 15 minutes
     minutes: /15
   - platform: numeric_state
-    entity_id: 
+    entity_id:
       - !input installation_current_power_l1_entity
       - !input installation_current_power_l2_entity
       - !input installation_current_power_l3_entity

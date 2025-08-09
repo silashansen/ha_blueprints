@@ -89,7 +89,7 @@ action:
       double_click_delay: "{{ (double_click_delay_value | int) / 1000 }}"
 
   - service: system_log.write
-    data_template:
+    data:
       message: "Variables: action: {{ action }}, current_time: {{ current_time }}, last_click_time: {{ last_click_time }}, time_since_last_click: {{ time_since_last_click }}, current_direction: {{ current_direction }}, double_click_delay: {{ double_click_delay }}"
       level: info
 
