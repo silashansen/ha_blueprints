@@ -1,7 +1,7 @@
 blueprint:
   description: "Control a color light with an EnOcean switch and long press to dim and change color"
   domain: "automation"
-  name: "EnOceam Dimmer Switch - Color"
+  name: "EnOcean Dimmer Switch - Color"
   input:
     light_target:
       name: Color light to control
