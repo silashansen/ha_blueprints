@@ -93,9 +93,9 @@ blueprint:
           filter:
             - domain: input_datetime
 
-    helper_charge_hours_entity:
-      name: Helper charge hours entity
-      description: Helper entity to store the charge hours for graphing
+    helper_charge_periods_entity:
+      name: Helper charge periods entity
+      description: Helper entity to store the charge periods for graphing
       selector:
         entity:
           filter:
@@ -132,6 +132,7 @@ action:
       input_departure_time: !input departure_time
       input_helper_charge_departure_entity: !input helper_charge_departure_entity
       input_helper_charge_start_entity: !input helper_charge_start_entity
+      input_helper_charge_periods_entity: !input helper_charge_periods_entity
 
   - variables:
       efficiency_factor: 0.9 # Charger efficiency factor
@@ -141,7 +142,7 @@ action:
       charger_mode: "{{ states(input_charger_mode_entity) }}"
       charge_power_kw: "{{ ((states(input_max_charge_power_entity) | float + states(input_min_charge_power_entity) | float) / 2) * 230 * 3 / 1000 | round(2) }}"
       required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / efficiency_factor }}"
-      hours_to_charge: "{{ ((required_charge_power_kw / charge_power_kw)) | round(0, 'ceil') | int}}"
+      periods_to_charge: "{{ ((required_charge_power_kw / charge_power_kw)) | round(0, 'ceil') | int}}"
       current_time: "{{ now() }}"
       departure: >-
         {% set current_time = now() %}
@@ -160,76 +161,100 @@ action:
         {% endif %}
 
   - variables:
-      cheapest_hours: >-
-        {% set ns = namespace(prices=[]) %}
+      cheapest_periods: >-
+        {% set ns = namespace(prices=[], resolution_minutes=60) %}
         {% set current_time = now() %}
         {% set departure_dt = as_datetime(departure) %}
+        
+        {#- Detect price data resolution by checking time difference between first two entries -#}
+        {% if state_attr(input_price_entity, 'raw_today') is not none and state_attr(input_price_entity, 'raw_today') | length > 1 %}
+          {% set first_price = state_attr(input_price_entity, 'raw_today')[0] %}
+          {% set second_price = state_attr(input_price_entity, 'raw_today')[1] %}
+          {% set time_diff_seconds = second_price.start.timestamp() - first_price.start.timestamp() %}
+          {% set ns.resolution_minutes = (time_diff_seconds / 60) | int %}
+        {% endif %}
+        
+        {#- Calculate number of periods needed based on resolution -#}
+        {% set periods_needed = (periods_to_charge * 60 / ns.resolution_minutes) | round(0, 'ceil') | int %}
+        
         {% if state_attr(input_price_entity, 'raw_today') is not none %}
           {% for price in state_attr(input_price_entity,'raw_today') -%}
-            {% if price.start.timestamp() // 3600 >= current_time.timestamp() // 3600 and price.start.timestamp() // 3600 < departure_dt.timestamp() // 3600 -%}
-              {% set ns.prices = ns.prices + [{ 'start': price.start.strftime('%Y-%m-%d %H:%M:%S'), 'start_ts': price.start.timestamp(), 'value': price.value }] -%}
+            {% set period_end = price.start.timestamp() + (ns.resolution_minutes * 60) %}
+            {% if period_end > current_time.timestamp() and price.start.timestamp() < departure_dt.timestamp() -%}
+              {% set ns.prices = ns.prices + [{ 'start': price.start.strftime('%Y-%m-%d %H:%M:%S'), 'start_ts': price.start.timestamp(), 'value': price.value, 'resolution_minutes': ns.resolution_minutes }] -%}
             {% endif -%}
           {% endfor -%}
         {% endif %}
         {% if state_attr(input_price_entity,'raw_tomorrow') is not none %}
           {% for price in state_attr(input_price_entity,'raw_tomorrow') -%}
-            {% if price.start.timestamp() // 3600 >= current_time.timestamp() // 3600 and price.start.timestamp() // 3600 < departure_dt.timestamp() // 3600 -%}
-              {% set ns.prices = ns.prices + [{ 'start': price.start.strftime('%Y-%m-%d %H:%M:%S'), 'start_ts': price.start.timestamp(), 'value': price.value }] -%}
+            {% set period_end = price.start.timestamp() + (ns.resolution_minutes * 60) %}
+            {% if period_end > current_time.timestamp() and price.start.timestamp() < departure_dt.timestamp() -%}
+              {% set ns.prices = ns.prices + [{ 'start': price.start.strftime('%Y-%m-%d %H:%M:%S'), 'start_ts': price.start.timestamp(), 'value': price.value, 'resolution_minutes': ns.resolution_minutes }] -%}
             {% endif -%}
           {% endfor -%}
         {% endif %}
         {% set future_prices_sorted_by_price = ns.prices | sort(attribute='value') -%}
 
-        {#- take the first hours_to_charge prices -#}
-        {% set first_hours_to_charge_prices = future_prices_sorted_by_price[:hours_to_charge] -%}
+        {#- take the first periods_needed prices (adjusted for resolution) -#}
+        {% set first_periods_needed_prices = future_prices_sorted_by_price[:periods_needed] -%}
 
-        {#- sort the first hours_to_charge prices by start time -#}
-        {% set first_hours_to_charge_prices_sorted_by_start = first_hours_to_charge_prices | sort(attribute='start_ts') -%}
+        {#- sort the selected periods by start time -#}
+        {% set first_periods_needed_prices_sorted_by_start = first_periods_needed_prices | sort(attribute='start_ts') -%}
 
-        {{ first_hours_to_charge_prices_sorted_by_start }}
+        {{ first_periods_needed_prices_sorted_by_start }}
   - variables:
       total_charge_cost: >-
         {% set tariff = 0.9648 %}
         {% set kwh_needed = required_charge_power_kw * efficiency_factor %}
-        {% set length_hours = cheapest_hours | length %}
-        {% set price_average = cheapest_hours | sum(attribute='value') / length_hours %}
+        {% set length_periods = cheapest_periods | length %}
+        {% set price_average = cheapest_periods | sum(attribute='value') / length_periods %}
         {{ (price_average + tariff) * kwh_needed }}
   - variables:
-      first_cheapest_hour: "{{ cheapest_hours[0] }}"
+      first_cheapest_period: "{{ cheapest_periods[0] }}"
   - variables:
-      is_cheapest_hour: >-
+      is_cheapest_period: >-
         {% set current_time = now() %}
-        {% set current_hour = (current_time.timestamp() // 3600) | int %}
-        {% set ns = namespace(is_cheapest_hour=false) %}
-        {% for price in cheapest_hours -%}
-          {% set price_hour = (price.start_ts | int) // 3600 %}
-          {% if price_hour == current_hour -%}
-            {% set ns.is_cheapest_hour = true -%}
+        {% set current_timestamp = current_time.timestamp() %}
+        {% set ns = namespace(is_cheapest_period=false, resolution_minutes=60) %}
+        
+        {#- Get resolution from cheapest_periods if available -#}
+        {% if cheapest_periods | length > 0 and cheapest_periods[0].resolution_minutes is defined %}
+          {% set ns.resolution_minutes = cheapest_periods[0].resolution_minutes %}
+        {% endif %}
+        
+        {% set period_duration_seconds = ns.resolution_minutes * 60 %}
+        
+        {#- Check if current time falls within any of the cheapest periods -#}
+        {% for price in cheapest_periods -%}
+          {% set period_start = price.start_ts %}
+          {% set period_end = price.start_ts + period_duration_seconds %}
+          {% if current_timestamp >= period_start and current_timestamp < period_end -%}
+            {% set ns.is_cheapest_period = true -%}
           {% endif -%}
         {% endfor -%}
-        {{ ns.is_cheapest_hour }}
+        {{ ns.is_cheapest_period }}
   - if:
-      - "{{ cheapest_hours | length > 0 }}"
+      - "{{ cheapest_periods | length > 0 }}"
     then:
       - action: input_datetime.set_datetime
         target:
           entity_id: !input helper_charge_start_entity
         data:
-          datetime: "{{ cheapest_hours[0].start }}"
+          datetime: "{{ cheapest_periods[0].start }}"
       - action: python_script.hass_entities
         data:
           action: set_state_attributes
-          entity_id: !input helper_charge_hours_entity
-          state: "{{ cheapest_hours[0].start }}"
+          entity_id: "{{ input_helper_charge_periods_entity }}"
+          state: "{{ cheapest_periods[0].start }}"
           attributes:
-            - prices: "{{ cheapest_hours | tojson }}"
+            - prices: "{{ cheapest_periods | tojson }}"
             - total_charge_cost: "{{ total_charge_cost }}"
   - choose:
       # Criteria for when to start charging
       - conditions:
           - and:
-              - "{{ cheapest_hours | length > 0 }}"
-              - "{{ is_cheapest_hour }}"
+              - "{{ cheapest_periods | length > 0 }}"
+              - "{{ is_cheapest_period }}"
               - "{{ current_soc < target_soc }}"
         sequence:
           - action: switch.turn_on
@@ -237,16 +262,16 @@ action:
               entity_id: !input charge_switch_entity
 
       # Criteria for when to stop charging
-      # Note: If charging is not done, but the cheapest hour has passed, we will stop charging.
+      # Note: If charging is not done, but the cheapest period has passed, we will stop charging.
       # This is to avoid charging for a long time if the price is not good.
-      # If, however, it's the cheapest hour, we will continue charging until the target SOC is reached.
+      # If, however, it's the cheapest period, we will continue charging until the target SOC is reached.
       - conditions:
-          # If charging and (not cheapest hour before departure or target SOC reached).
+          # If charging and (not cheapest period before departure or target SOC reached).
           - and:
               - "{{ states(input_charger_mode_entity) == 'Charging' }}" # Always only consider stopping if charging
               - or:
                   - and:
-                      - "{{ not is_cheapest_hour }}" # Not the cheapest hour
+                      - "{{ not is_cheapest_period }}" # Not the cheapest period
                       - "{{ now() < as_datetime(departure) }}" # Before departure time
                   - and:
                       - "{{ current_soc >= target_soc }}" # Reached target SOC
