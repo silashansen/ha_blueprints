@@ -268,7 +268,7 @@ action:
       - conditions:
           # If charging and (not cheapest period before departure or target SOC reached).
           - and:
-              - "{{ states(input_charger_mode_entity) == 'Charging' }}" # Always only consider stopping if charging
+              - "{{ states(input_charger_mode_entity) == 'connected_charging' }}" # Always only consider stopping if charging
               - or:
                   - and:
                       - "{{ not is_cheapest_period }}" # Not the cheapest period
