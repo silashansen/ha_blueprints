@@ -151,8 +151,7 @@ condition:
   # First check if charger is in Charging mode before proceeding with any other checks
   - condition: template
     value_template: >
-      {{ states(input_charger_mode_entity) == 'Charging' }}
-
+      {{ states(input_charger_mode_entity) == 'connected_charging' }}
 
 action:
   - variables:
