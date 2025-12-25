@@ -3,7 +3,6 @@ blueprint:
   description: Automatically adjust the charge power of the EV based on the current load.
   domain: automation
   input:
-
     zaptec_installation:
       name: Zaptec Installation
       description: The Zaptec installation to control.
@@ -11,7 +10,7 @@ blueprint:
         device:
           filter:
             - integration: zaptec
-      
+
     charger_mode_entity:
       name: Charger mode
       description: The mode of the charger.
@@ -29,7 +28,7 @@ blueprint:
           filter:
             - domain: number
               integration: zaptec
-    
+
     charger_max_current_entity:
       name: Charger max current
       description: The maximum current the charger can handle.
@@ -58,7 +57,7 @@ blueprint:
           filter:
             - domain: sensor
               integration: tibber
-    
+
     installation_current_power_l2_entity:
       name: Installation current power L2
       description: The current power of the installation in Amps.
@@ -146,7 +145,6 @@ trigger:
     for:
       seconds: 10
 
-
 condition:
   # First check if charger is in Charging mode before proceeding with any other checks
   - condition: template
@@ -159,13 +157,6 @@ action:
       installation_max_power: "{{ input_installation_max_power | float }}"
       charger_min_current: "{{ states(input_charger_min_current_entity) | float(default=0) }}"
       charger_max_current: "{{ states(input_charger_max_current_entity) | float(default=0) }}"
-      # Check if Tibber entities are available
-      tibber_available: >
-        {{ 
-          states(input_installation_current_power_l1_entity) not in ['unavailable', 'unknown', 'none'] and
-          states(input_installation_current_power_l2_entity) not in ['unavailable', 'unknown', 'none'] and
-          states(input_installation_current_power_l3_entity) not in ['unavailable', 'unknown', 'none']
-        }}
       installation_current_power_l1: "{{ states(input_installation_current_power_l1_entity) | float(default=0) }}"
       installation_current_power_l2: "{{ states(input_installation_current_power_l2_entity) | float(default=0) }}"
       installation_current_power_l3: "{{ states(input_installation_current_power_l3_entity) | float(default=0) }}"
@@ -178,29 +169,12 @@ action:
       available_charge_amps_l1: "{{ installation_max_power - installation_current_power_l1 | int }}"
       available_charge_amps_l2: "{{ installation_max_power - installation_current_power_l2 | int }}"
       available_charge_amps_l3: "{{ installation_max_power - installation_current_power_l3 | int }}"
-    
+
   - variables:
-      # If Tibber unavailable, set to minimum current. Otherwise calculate based on available power
-      new_current_l1: >
-        {{ 
-          charger_min_current | int 
-          if not tibber_available 
-          else max(min(charger_current_power_l1 + available_charge_amps_l1, charger_max_current) - 1, charger_min_current) | int 
-        }}
-      new_current_l2: >
-        {{ 
-          charger_min_current | int 
-          if not tibber_available 
-          else max(min(charger_current_power_l2 + available_charge_amps_l2, charger_max_current) - 1, charger_min_current) | int 
-        }}
-      new_current_l3: >
-        {{ 
-          charger_min_current | int 
-          if not tibber_available 
-          else max(min(charger_current_power_l3 + available_charge_amps_l3, charger_max_current) - 1, charger_min_current) | int 
-        }}
-  - variables:
-      change_needed: "{{ new_current_l1 != (charger_current_power_l1 | int) or new_current_l2 != (charger_current_power_l2 | int) or new_current_l3 != (charger_current_power_l3 | int) }}"
+      # Subtract 1 to prevent tiny fluctuations
+      new_curent_l1: "{{ max(min(charger_current_power_l1 + available_charge_amps_l1, charger_max_current) - 1, charger_min_current) | int }}"
+      new_curent_l2: "{{ max(min(charger_current_power_l2 + available_charge_amps_l2, charger_max_current) - 1, charger_min_current) | int }}"
+      new_curent_l3: "{{ max(min(charger_current_power_l3 + available_charge_amps_l3, charger_max_current) - 1, charger_min_current) | int }}"
 
   - choose:
       #- conditions:
@@ -215,12 +189,11 @@ action:
       #        available_current_phase3: "{{ new_curent_l3 }}"
       - conditions:
           - condition: template
-            value_template: "{{ change_needed }}"
+            value_template: "{{ new_curent_l1 != (charger_current_power_l1 | int) or new_curent_l2 != (charger_current_power_l2 | int) or new_curent_l3 != (charger_current_power_l3 | int) }}"
         sequence:
           - action: zaptec.limit_current
             data:
               device_id: !input zaptec_installation
-              available_current_phase1: "{{ new_current_l1 }}"
-              available_current_phase2: "{{ new_current_l2 }}"
-              available_current_phase3: "{{ new_current_l3 }}"
-
+              available_current_phase1: "{{ new_curent_l1 }}"
+              available_current_phase2: "{{ new_curent_l2 }}"
+              available_current_phase3: "{{ new_curent_l3 }}"
