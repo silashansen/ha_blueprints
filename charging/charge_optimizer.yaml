@@ -140,9 +140,9 @@ action:
       current_soc: "{{ states(input_car_soc_entity) | float(0) }}"
       target_soc: "{{ input_target_soc | float }}"
       charger_mode: "{{ states(input_charger_mode_entity) }}"
-      charge_power_kw: "{{ ((states(input_max_charge_power_entity) | float + states(input_min_charge_power_entity) | float) / 2) * 230 * 3 / 1000 | round(2) }}"
-      required_charge_power_kw: "{{ (target_soc - current_soc) * battery_capacity / 100 / efficiency_factor }}"
-      periods_to_charge: "{{ ((required_charge_power_kw / charge_power_kw)) | round(0, 'ceil') | int}}"
+      charge_power_kw: "{{ ((states(input_max_charge_power_entity) | float(0) + states(input_min_charge_power_entity) | float(0)) / 2) * 230 * 3 / 1000 | round(2) }}"
+      required_charge_power_kw: "{{ [(target_soc - current_soc), 0] | max * battery_capacity / 100 / efficiency_factor }}"
+      periods_to_charge: "{{ ((required_charge_power_kw / charge_power_kw) | round(0, 'ceil') | int) if charge_power_kw > 0 else 0 }}"
       current_time: "{{ now() }}"
       departure: >-
         {% set current_time = now() %}
@@ -154,10 +154,10 @@ action:
         {% set today = current_time.replace(hour=0, minute=0, second=0, microsecond=0) %}
         {% set departure_time = strptime(selected_departure_time, '%H:%M:%S').time() %}
         {% set departure = today.replace(hour=departure_time.hour, minute=departure_time.minute, second=departure_time.second) %}
-        {%- if departure.timestamp() < current_time.timestamp() %}
-          {{- (departure + timedelta(days=1)).timestamp() -}}
+        {%- if departure < current_time %}
+          {{- (departure + timedelta(days=1)).isoformat() -}}
         {% else %}
-          {{- departure.timestamp() -}}
+          {{- departure.isoformat() -}}
         {% endif %}
 
   - variables:
@@ -165,7 +165,7 @@ action:
         {% set ns = namespace(prices=[], resolution_minutes=60) %}
         {% set current_time = now() %}
         {% set departure_dt = as_datetime(departure) %}
-        
+
         {#- Detect price data resolution by checking time difference between first two entries -#}
         {% if state_attr(input_price_entity, 'raw_today') is not none and state_attr(input_price_entity, 'raw_today') | length > 1 %}
           {% set first_price = state_attr(input_price_entity, 'raw_today')[0] %}
@@ -173,10 +173,10 @@ action:
           {% set time_diff_seconds = second_price.start.timestamp() - first_price.start.timestamp() %}
           {% set ns.resolution_minutes = (time_diff_seconds / 60) | int %}
         {% endif %}
-        
+
         {#- Calculate number of periods needed based on resolution -#}
         {% set periods_needed = (periods_to_charge * 60 / ns.resolution_minutes) | round(0, 'ceil') | int %}
-        
+
         {% if state_attr(input_price_entity, 'raw_today') is not none %}
           {% for price in state_attr(input_price_entity,'raw_today') -%}
             {% set period_end = price.start.timestamp() + (ns.resolution_minutes * 60) %}
@@ -207,23 +207,27 @@ action:
         {% set tariff = 0.9648 %}
         {% set kwh_needed = required_charge_power_kw * efficiency_factor %}
         {% set length_periods = cheapest_periods | length %}
-        {% set price_average = cheapest_periods | sum(attribute='value') / length_periods %}
-        {{ (price_average + tariff) * kwh_needed }}
+        {% if length_periods > 0 %}
+          {% set price_average = cheapest_periods | sum(attribute='value') / length_periods %}
+          {{ (price_average + tariff) * kwh_needed }}
+        {% else %}
+          {{ 0 }}
+        {% endif %}
   - variables:
-      first_cheapest_period: "{{ cheapest_periods[0] }}"
+      first_cheapest_period: "{{ cheapest_periods[0] if cheapest_periods | length > 0 else none }}"
   - variables:
       is_cheapest_period: >-
         {% set current_time = now() %}
         {% set current_timestamp = current_time.timestamp() %}
         {% set ns = namespace(is_cheapest_period=false, resolution_minutes=60) %}
-        
+
         {#- Get resolution from cheapest_periods if available -#}
         {% if cheapest_periods | length > 0 and cheapest_periods[0].resolution_minutes is defined %}
           {% set ns.resolution_minutes = cheapest_periods[0].resolution_minutes %}
         {% endif %}
-        
+
         {% set period_duration_seconds = ns.resolution_minutes * 60 %}
-        
+
         {#- Check if current time falls within any of the cheapest periods -#}
         {% for price in cheapest_periods -%}
           {% set period_start = price.start_ts %}
@@ -241,14 +245,14 @@ action:
           entity_id: !input helper_charge_start_entity
         data:
           datetime: "{{ cheapest_periods[0].start }}"
-      - action: python_script.hass_entities
-        data:
-          action: set_state_attributes
-          entity_id: "{{ input_helper_charge_periods_entity }}"
-          state: "{{ cheapest_periods[0].start }}"
-          attributes:
-            - prices: "{{ cheapest_periods | tojson }}"
-            - total_charge_cost: "{{ total_charge_cost }}"
+  - action: python_script.hass_entities
+    data:
+      action: set_state_attributes
+      entity_id: "{{ input_helper_charge_periods_entity }}"
+      state: "{{ cheapest_periods[0].start if cheapest_periods | length > 0 else 'idle' }}"
+      attributes:
+        - prices: "{{ cheapest_periods | tojson }}"
+        - total_charge_cost: "{{ total_charge_cost }}"
   - choose:
       # Criteria for when to start charging
       - conditions:
@@ -256,6 +260,10 @@ action:
               - "{{ cheapest_periods | length > 0 }}"
               - "{{ is_cheapest_period }}"
               - "{{ current_soc < target_soc }}"
+              - "{{ has_value(input_car_soc_entity) }}" # Don't start off a fabricated 0% SoC
+              # Zaptec only accepts resume while paused; skip when disconnected,
+              # already charging or finished.
+              - "{{ charger_mode not in ['disconnected', 'connected_charging', 'connected_finished'] }}"
         sequence:
           - action: switch.turn_on
             target:
@@ -281,5 +289,8 @@ action:
               entity_id: !input charge_switch_entity
 
 mode: single
+# The price entity republishes on the same quarter-hour tick as the
+# time_pattern trigger; the rejected duplicate run has identical inputs.
+max_exceeded: silent
 trace:
   stored_traces: 50

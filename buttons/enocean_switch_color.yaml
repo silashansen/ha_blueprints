@@ -182,7 +182,10 @@ action:
               sequence:
                 - service: light.turn_on
                   data:
-                    brightness_step_pct: "{{0 if ((state_attr(light,'brightness') | int) -  (255 / 100 * pos_dimming_step_size_pct)) <= 1 else neg_dimming_step_size_pct }}"
+                    # If deducting the step would take brightness to 1 or below, hold at the
+                    # current level instead. int(0) is required: a light that is off reports
+                    # no brightness at all, and a bare `| int` raises on None.
+                    brightness_step_pct: "{{0 if ((state_attr(light,'brightness') | int(0)) -  (255 / 100 * pos_dimming_step_size_pct)) <= 1 else neg_dimming_step_size_pct }}"
                     transition: 0.2
                     entity_id: !input light_target
                 - delay:

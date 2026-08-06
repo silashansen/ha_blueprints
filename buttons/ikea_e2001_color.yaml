@@ -104,8 +104,10 @@ action:
             target:
               entity_id: !input light
             data:
-              rgb_color: [255, 255, 255]
-              brightness: 255
+              # 2700 K == the 370 mired value this replaced. `color_temp` (mireds) was
+              # removed from light.turn_on; only color_temp_kelvin is accepted.
+              color_temp_kelvin: 2700
+              brightness_pct: 100
               transition: 0.25
 
       # Single click color change

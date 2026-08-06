@@ -1,5 +1,5 @@
 blueprint:
-  name: Philips Tap Dial Sonos Controller
+  name: Phlips Tap Dial Sonos Controller
   description: "Use Philips Tap Dial to control Sonos.
     Use an entity id which ends with '_action', e.g. 'sensor.bedroom_bed_tap_dial_switch_action'"
 
@@ -44,7 +44,7 @@ blueprint:
           max: 1
           step: 0.01
     volume_dial_step:
-      name: Single step dial volume increase/decrease
+      name: Singel step dial volume increase/decrease
       description: How fast the volume is increase or decreased when dialing a single step at a time. The range is 0.0 to 1.0
       default: 0.01
       selector:
@@ -118,109 +118,61 @@ action:
       # DIAL LEFT
       - conditions: "{{ action == 'dial_rotate_left_step' }}"
         sequence:
-          - repeat:
-              count: >-
-                {{ state_attr(sonos_controller, 'group_members') | length
-                }}
-              sequence:
-                - service: media_player.volume_set
-                  data:
-                    volume_level: >-
-                      {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') - volume_dial_step,
-                      0] | max | float }}
-                  target:
-                    entity_id: >-
-                      {{ state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1] }}
+          - service: media_player.volume_set
+            data:
+              volume_level: >-
+                {{ [state_attr(sonos_controller, 'volume_level') - volume_dial_step, 0] | max | float }}
+            target:
+              entity_id: >-
+                {{ state_attr(sonos_controller, 'group_members') }}
 
       - conditions: "{{ action == 'dial_rotate_left_slow' }}"
         sequence:
-          - repeat:
-              count: >-
-                {{ state_attr(sonos_controller, 'group_members') | length
-                }}
-              sequence:
-                - service: media_player.volume_set
-                  data:
-                    volume_level: >-
-                      {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') - volume_dial_slow,
-                      0] | max | float }}
-                  target:
-                    entity_id: >-
-                      {{ state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1] }}
+          - service: media_player.volume_set
+            data:
+              volume_level: >-
+                {{ [state_attr(sonos_controller, 'volume_level') - volume_dial_slow, 0] | max | float }}
+            target:
+              entity_id: >-
+                {{ state_attr(sonos_controller, 'group_members') }}
 
       - conditions: "{{ action == 'dial_rotate_left_fast' }}"
         sequence:
-          - repeat:
-              count: >-
-                {{ state_attr(sonos_controller, 'group_members') | length
-                }}
-              sequence:
-                - service: media_player.volume_set
-                  data:
-                    volume_level: >-
-                      {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') - volume_dial_fast,
-                      0] | max | float }}
-                  target:
-                    entity_id: >-
-                      {{ state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1] }}
+          - service: media_player.volume_set
+            data:
+              volume_level: >-
+                {{ [state_attr(sonos_controller, 'volume_level') - volume_dial_fast * 1, 0] | max | float }}
+            target:
+              entity_id: >-
+                {{ state_attr(sonos_controller, 'group_members') }}
 
       # DIAL RIGHT
       - conditions: "{{ action == 'dial_rotate_right_step' }}"
         sequence:
-          - repeat:
-              count: >-
-                {{ state_attr(sonos_controller, 'group_members') | length
-                }}
-              sequence:
-                - service: media_player.volume_set
-                  data:
-                    volume_level: >-
-                      {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') + volume_dial_step,
-                      1] | min | float }}
-                  target:
-                    entity_id: >-
-                      {{ state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1] }}
+          - service: media_player.volume_set
+            data:
+              volume_level: >-
+                {{ [state_attr(sonos_controller, 'volume_level') + volume_dial_step, 1] | min | float }}
+            target:
+              entity_id: >-
+                {{ state_attr(sonos_controller, 'group_members') }}
 
       - conditions: "{{ action == 'dial_rotate_right_slow' }}"
         sequence:
-          - repeat:
-              count: >-
-                {{ state_attr(sonos_controller, 'group_members') | length
-                }}
-              sequence:
-                - service: media_player.volume_set
-                  data:
-                    volume_level: >-
-                      {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') + volume_dial_slow,
-                      1] | min | float }}
-                  target:
-                    entity_id: >-
-                      {{ state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1] }}
+          - service: media_player.volume_set
+            data:
+              volume_level: >-
+                {{ [state_attr(sonos_controller, 'volume_level') + volume_dial_slow, 1] | min | float }}
+            target:
+              entity_id: >-
+                {{ state_attr(sonos_controller, 'group_members') }}
 
       - conditions: "{{ action == 'dial_rotate_right_fast' }}"
         sequence:
-          - repeat:
-              count: >-
-                {{ state_attr(sonos_controller, 'group_members') | length
-                }}
-              sequence:
-                - service: media_player.volume_set
-                  data:
-                    volume_level: >-
-                      {{ [state_attr(state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1], 'volume_level') + volume_dial_fast,
-                      1] | min | float }}
-                  target:
-                    entity_id: >-
-                      {{ state_attr(sonos_controller,
-                      'group_members')[repeat.index - 1] }}
+          - service: media_player.volume_set
+            data:
+              volume_level: >-
+                {{ [state_attr(sonos_controller, 'volume_level') + volume_dial_fast / 5, 1] | min | float }}
+            target:
+              entity_id: >-
+                {{ state_attr(sonos_controller, 'group_members') }}
