@@ -261,9 +261,13 @@ action:
               - "{{ is_cheapest_period }}"
               - "{{ current_soc < target_soc }}"
               - "{{ has_value(input_car_soc_entity) }}" # Don't start off a fabricated 0% SoC
-              # Zaptec only accepts resume while paused; skip when disconnected,
-              # already charging or finished.
-              - "{{ charger_mode not in ['disconnected', 'connected_charging', 'connected_finished'] }}"
+              # Zaptec only accepts resume while paused, and paused IS
+              # 'connected_finished' (+ FinalStopActive). The switch entity already
+              # encodes that rule: it reports 'off' only while resume is a legal
+              # command, and goes unavailable when unplugged or otherwise blocked.
+              # Gating on charger_mode instead would skip the one state we can
+              # actually resume from.
+              - "{{ is_state(input_charge_switch_entity, 'off') }}"
         sequence:
           - action: switch.turn_on
             target:
